@@ -1,0 +1,15 @@
+{
+  "name": "Tourist Chinese — Words & Offline Translator",
+  "short_name": "Tourist Chinese",
+  "description": "1,000 survival Chinese flashcards plus a 20,000-word offline English–Chinese dictionary translator.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f6f9",
+  "theme_color": "#d92b3a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

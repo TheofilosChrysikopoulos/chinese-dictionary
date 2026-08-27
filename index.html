@@ -3,9 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="Learn 1,000 survival Chinese words for tourists — English · 汉字 · Pīnyīn flashcards.">
+  <meta name="description" content="Learn 1,000 survival Chinese words for tourists — flashcards plus a 20,000-word offline English–Chinese translator.">
   <meta name="theme-color" content="#d92b3a">
-  <title>Tourist Chinese · 1,000 Survival Words</title>
+  <title>Tourist Chinese · Words & Offline Translator</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
@@ -18,11 +23,11 @@
     <header class="hero">
       <div class="hero-badge">🇨🇳 Survival Mandarin</div>
       <h1>Tourist <span class="accent">Chinese</span></h1>
-      <p class="hero-sub">1,000 essential words · English · 汉字 · Pīnyīn</p>
+      <p class="hero-sub">1,000 flashcards · 20,000-word offline translator</p>
       <div class="hero-stats">
         <span class="chip">10 categories</span>
         <span class="chip">1,000 words</span>
-        <span class="chip">3 formats</span>
+        <span class="chip">🔎 offline translator</span>
       </div>
     </header>
 
@@ -75,6 +80,28 @@
     </div>
   </main>
 
+  <!-- ================= TRANSLATE ================= -->
+  <main id="translate" class="screen hidden">
+    <header class="tr-head">
+      <h1>Offline <span class="accent">Translator</span></h1>
+      <p class="tr-sub">English ⇄ 汉字 ⇄ pīnyīn · 20,000 words · tap a result to hear it</p>
+    </header>
+
+    <div class="tr-search">
+      <input id="trInput" type="search" placeholder="Type English, 汉字 or pinyin…" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Search the dictionary">
+      <button id="trClear" class="tr-clear hidden" type="button" title="Clear" aria-label="Clear search">✕</button>
+    </div>
+
+    <div class="tr-status" id="trStatus" aria-live="polite"></div>
+    <div id="trResults" class="tr-results"></div>
+  </main>
+
+  <!-- ================= BOTTOM NAV ================= -->
+  <nav id="bottomNav" class="bottom-nav" aria-label="Main navigation">
+    <button class="nav-btn active" data-nav="home" type="button"><span class="nav-ico" aria-hidden="true">🏠</span><span>Learn</span></button>
+    <button class="nav-btn" data-nav="translate" type="button"><span class="nav-ico" aria-hidden="true">🔎</span><span>Translate</span></button>
+  </nav>
+
   <script src="data/categories.js"></script>
   <script src="data/cat1.js"></script>
   <script src="data/cat2.js"></script>
@@ -87,5 +114,14 @@
   <script src="data/cat9.js"></script>
   <script src="data/cat10.js"></script>
   <script src="app.js"></script>
+  <script src="translate.js"></script>
+  <script>
+    // Offline support — register the service worker after first load.
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("sw.js").catch(function () { /* offline-first is best-effort */ });
+      });
+    }
+  </script>
 </body>
 </html>

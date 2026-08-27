@@ -3,3 +3,9 @@ node_modules/
 Thumbs.db
 *.log
 .vscode/
+
+cedict.txt
+cedict.txt.gz
+wordlist.txt
+jun-da-freq.json
+gen-icons.ps1
