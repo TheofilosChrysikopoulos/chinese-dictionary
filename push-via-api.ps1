@@ -15,13 +15,18 @@ foreach ($f in $files) {
 
   # If the file already exists on GitHub, include its sha so the PUT updates it
   $sha = gh api "repos/$repo/contents/$f" --jq .sha 2>$null
-  if ($LASTEXITCODE -eq 0 -and $sha) {
-    gh api "repos/$repo/contents/$f" -X PUT -f message="update $f" -f content=$b64 -f sha=$sha | Out-Null
-  } else {
-    gh api "repos/$repo/contents/$f" -X PUT -f message="add $f" -f content=$b64 | Out-Null
-  }
+  $hasSha = ($LASTEXITCODE -eq 0 -and $sha)
+
+  # Build the JSON request body in a temp file. Large payloads (e.g. the 1 MB
+  # dictionary) exceed the Windows command-line length limit when passed via
+  # -f, so we always use "gh api --input <file>" instead.
+  $body = @{ message = "$(if ($hasSha) {'update'} else {'add'}) $f"; content = $b64 }
+  if ($hasSha) { $body.sha = $sha }
+  $bodyFile = Join-Path $env:TEMP "gh-put-body.json"
+  $body | ConvertTo-Json -Compress -Depth 3 | Set-Content -Path $bodyFile -Encoding ASCII
+
+  gh api "repos/$repo/contents/$f" -X PUT -H "Content-Type: application/json" --input $bodyFile | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "upload failed for $f" }
   Write-Host "  uploaded: $f"
 }
 Write-Host "DONE - all files uploaded"
-
