@@ -2,7 +2,7 @@
 # Handles both creating new files and updating existing ones (bypasses the
 # blocked github.com:443 git endpoint on this network).
 # Usage: powershell -ExecutionPolicy Bypass -File push-via-api.ps1
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue" # gh writes expected 404s to stderr; we check $LASTEXITCODE instead
 $repo = "TheofilosChrysikopoulos/chinese-dictionary"
 
 Set-Location $PSScriptRoot
@@ -24,3 +24,4 @@ foreach ($f in $files) {
   Write-Host "  uploaded: $f"
 }
 Write-Host "DONE - all files uploaded"
+
