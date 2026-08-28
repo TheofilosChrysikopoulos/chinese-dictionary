@@ -5,7 +5,7 @@
  * changes any asset so old caches are purged on activate.
  * ========================================================= */
 
-const CACHE_VERSION = "tourist-chinese-v1";
+const CACHE_VERSION = "tourist-chinese-v2";
 const ASSETS = [
   "./",
   "./index.html",

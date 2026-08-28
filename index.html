@@ -18,6 +18,20 @@
 </head>
 <body>
 
+  <!-- ================= TOP BAR ================= -->
+  <header class="top-bar">
+    <div class="top-inner">
+      <button class="brand" id="brandBtn" type="button" title="Home" aria-label="Tourist Chinese — home">
+        <span class="brand-mark" aria-hidden="true">中</span>
+        <span class="brand-name">Tourist Chinese</span>
+      </button>
+      <div class="seg" id="segControl" role="tablist" aria-label="App section">
+        <button class="seg-btn active" data-nav="home" type="button" role="tab" aria-selected="true"><span aria-hidden="true">🏠</span>Learn</button>
+        <button class="seg-btn" data-nav="translate" type="button" role="tab" aria-selected="false"><span aria-hidden="true">🔎</span>Translate</button>
+      </div>
+    </div>
+  </header>
+
   <!-- ================= HOME ================= -->
   <main id="home" class="screen">
     <header class="hero">
@@ -29,6 +43,11 @@
         <span class="chip">1,000 words</span>
         <span class="chip">🔎 offline translator</span>
       </div>
+      <button class="tr-cta" id="trCta" type="button">
+        <span class="tr-cta-ico" aria-hidden="true">🔎</span>
+        Translate a word…
+        <span class="tr-cta-arrow" aria-hidden="true">→</span>
+      </button>
     </header>
 
     <section class="grid" id="categoryGrid" aria-label="Categories"></section>
@@ -95,12 +114,6 @@
     <div class="tr-status" id="trStatus" aria-live="polite"></div>
     <div id="trResults" class="tr-results"></div>
   </main>
-
-  <!-- ================= BOTTOM NAV ================= -->
-  <nav id="bottomNav" class="bottom-nav" aria-label="Main navigation">
-    <button class="nav-btn active" data-nav="home" type="button"><span class="nav-ico" aria-hidden="true">🏠</span><span>Learn</span></button>
-    <button class="nav-btn" data-nav="translate" type="button"><span class="nav-ico" aria-hidden="true">🔎</span><span>Translate</span></button>
-  </nav>
 
   <script src="data/categories.js"></script>
   <script src="data/cat1.js"></script>
