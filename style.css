@@ -808,8 +808,313 @@ button:focus-visible,
 }
 .more-btn:hover { background: rgba(217, 43, 58, .08); }
 
+/* ================= VOICE AI ================= */
+
+.vc-warn {
+  max-width: 640px;
+  margin: 0 auto 18px;
+  background: #fff8ec;
+  border: 1px solid rgba(180, 83, 9, .25);
+  color: var(--amber);
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  font-size: .9rem;
+  line-height: 1.5;
+}
+
+.vc-panel {
+  max-width: 640px;
+  margin: 0 auto 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-md);
+  padding: 22px 24px;
+}
+
+.vc-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.vc-panel-head h2 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -.01em;
+}
+
+.vc-badge {
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  background: #f2f4f8;
+  border-radius: 999px;
+  padding: 4px 11px;
+}
+
+.vc-field { margin-bottom: 14px; }
+
+.vc-field label {
+  display: block;
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 6px;
+}
+
+.vc-field select {
+  width: 100%;
+  font: inherit;
+  font-size: .95rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.vc-field select:focus-visible {
+  outline: 3px solid rgba(217,43,58,.35);
+  outline-offset: 1px;
+}
+
+.vc-note {
+  font-size: .8rem;
+  color: var(--ink-3);
+  margin-top: 5px;
+  line-height: 1.45;
+}
+
+.vc-dl-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.vc-dl-row .btn-primary {
+  padding: 11px 20px;
+  font-size: .95rem;
+}
+
+.vc-storage {
+  font-size: .8rem;
+  color: var(--ink-3);
+}
+
+.vc-progress { margin-top: 14px; }
+
+.vc-progress-track {
+  height: 8px;
+  background: #eef0f5;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.vc-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--red), #e8762d);
+  border-radius: 999px;
+  transition: width .25s ease;
+}
+
+.vc-progress-text {
+  margin-top: 7px;
+  font-size: .78rem;
+  color: var(--ink-2);
+  word-break: break-word;
+}
+
+/* — speak panel — */
+
+.vc-speak-panel {
+  max-width: 640px;
+  margin: 0 auto 22px;
+  text-align: center;
+}
+
+.vc-mics {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.vc-mic {
+  flex: 1 1 220px;
+  max-width: 300px;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--red), var(--red-deep));
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+  padding: 22px 18px;
+  transition: transform .12s ease, box-shadow .15s ease, filter .15s ease;
+}
+
+.vc-mic-zh {
+  background: linear-gradient(135deg, #26304a, var(--ink));
+}
+
+.vc-mic:not(:disabled):hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.vc-mic:not(:disabled):active { transform: scale(.98); }
+
+.vc-mic:disabled {
+  filter: grayscale(.5);
+  opacity: .45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.vc-mic.recording {
+  animation: vc-pulse 1.4s ease-in-out infinite;
+  filter: none;
+  opacity: 1;
+}
+
+@keyframes vc-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217,43,58,.45), var(--shadow-md); }
+  50%      { box-shadow: 0 0 0 14px rgba(217,43,58,0), var(--shadow-md); }
+}
+
+.vc-hint {
+  margin-top: 12px;
+  font-size: .85rem;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+
+/* — result card — */
+
+.vc-result {
+  max-width: 640px;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-md);
+  padding: 26px 26px 24px;
+  text-align: center;
+  animation: rise .45s cubic-bezier(.22,.9,.35,1) both;
+}
+
+.vc-block { margin-bottom: 20px; }
+
+.vc-label {
+  display: block;
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 8px;
+}
+
+.vc-heard {
+  font-size: 1.05rem;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+
+.vc-hz {
+  font-family: var(--font-hz);
+  font-weight: 700;
+  font-size: clamp(1.8rem, 7vw, 2.6rem);
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.vc-py {
+  color: var(--red);
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin-top: 8px;
+  letter-spacing: .02em;
+}
+
+.vc-en {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.vc-result .btn-primary { margin-top: 4px; }
+
 @media (max-width: 480px) {
   .brand-name { display: none; }
   .top-inner { padding: 10px 16px; }
   .seg-btn { padding: 7px 13px; font-size: .8rem; }
 }
+
+/* ---------- Translate tab: AI sentence translation ---------- */
+
+.tr-ai {
+  max-width: 560px;
+  margin: 18px auto 0;
+}
+
+.tr-ai-row { display: flex; gap: 10px; align-items: stretch; }
+
+.tr-ai-row select {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  font-size: .85rem;
+  color: var(--ink);
+  padding: 10px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.tr-ai-row select:focus-visible {
+  outline: 3px solid rgba(217, 43, 58, .35);
+  outline-offset: 1px;
+}
+
+.tr-ai-btn {
+  flex: 0 0 auto;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  font-size: .9rem;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: var(--r-sm);
+  background: linear-gradient(135deg, var(--red), var(--red-deep));
+  box-shadow: var(--shadow-sm);
+}
+
+.tr-ai-btn:hover { filter: brightness(1.06); }
+.tr-ai-btn:disabled { opacity: .6; cursor: default; }
+
+.tr-ai-status {
+  text-align: center;
+  color: var(--ink-3);
+  font-size: .85rem;
+  min-height: 1.2em;
+  margin-top: 10px;
+}
+
+.tr-ai .vc-progress { margin: 12px 0 0; }
+.tr-ai .vc-result { margin: 14px auto 0; max-width: 560px; }
+
+@media (max-width: 480px) {
+  .tr-ai-row { flex-direction: column; }
+}
+

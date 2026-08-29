@@ -28,6 +28,7 @@
       <div class="seg" id="segControl" role="tablist" aria-label="App section">
         <button class="seg-btn active" data-nav="home" type="button" role="tab" aria-selected="true"><span aria-hidden="true">🏠</span>Learn</button>
         <button class="seg-btn" data-nav="translate" type="button" role="tab" aria-selected="false"><span aria-hidden="true">🔎</span>Translate</button>
+        <button class="seg-btn" data-nav="voice" type="button" role="tab" aria-selected="false"><span aria-hidden="true">🎙</span>Voice AI</button>
       </div>
     </div>
   </header>
@@ -42,6 +43,7 @@
         <span class="chip">10 categories</span>
         <span class="chip">1,000 words</span>
         <span class="chip">🔎 offline translator</span>
+        <span class="chip">🎙 offline AI voice</span>
       </div>
       <button class="tr-cta" id="trCta" type="button">
         <span class="tr-cta-ico" aria-hidden="true">🔎</span>
@@ -103,7 +105,7 @@
   <main id="translate" class="screen hidden">
     <header class="tr-head">
       <h1>Offline <span class="accent">Translator</span></h1>
-      <p class="tr-sub">English ⇄ 汉字 ⇄ pīnyīn · 20,000 words · tap a result to hear it</p>
+      <p class="tr-sub">English ⇄ 汉字 ⇄ pīnyīn · 20,000 words + on-device AI sentences · tap a result to hear it</p>
     </header>
 
     <div class="tr-search">
@@ -111,8 +113,94 @@
       <button id="trClear" class="tr-clear hidden" type="button" title="Clear" aria-label="Clear search">✕</button>
     </div>
 
+    <!-- AI full-sentence translation — same on-device Qwen model as the Voice tab -->
+    <section class="tr-ai" aria-label="AI sentence translation">
+      <div class="tr-ai-row">
+        <select id="trAiModel" aria-label="AI translation model"></select>
+        <button id="trAiBtn" class="tr-ai-btn" type="button">✨ AI Translate</button>
+      </div>
+      <p class="vc-note" id="trAiNote"></p>
+      <div class="vc-progress hidden" id="trAiProgWrap">
+        <div class="vc-progress-track"><div class="vc-progress-fill" id="trAiProgFill"></div></div>
+        <div class="vc-progress-text" id="trAiProgText" aria-live="polite"></div>
+      </div>
+      <div class="tr-ai-status" id="trAiStatus" aria-live="polite"></div>
+      <section class="vc-result hidden" id="trAiResult" aria-label="AI translation result">
+        <div class="vc-block">
+          <span class="vc-label" id="trAiDir">English → 中文</span>
+          <div class="vc-hz" id="trAiHanzi" lang="zh-CN"></div>
+          <div class="vc-py" id="trAiPinyin"></div>
+          <div class="vc-en" id="trAiEnglish"></div>
+        </div>
+        <button id="trAiSpeak" class="btn-primary hidden" type="button">🔊 Hear it</button>
+      </section>
+    </section>
+
     <div class="tr-status" id="trStatus" aria-live="polite"></div>
     <div id="trResults" class="tr-results"></div>
+  </main>
+
+  <!-- ================= VOICE AI ================= -->
+  <main id="voice" class="screen hidden">
+    <header class="tr-head">
+      <h1>AI <span class="accent">Voice</span> Translator</h1>
+      <p class="tr-sub">Speak a full sentence — transcribed &amp; translated on your device · works offline</p>
+    </header>
+
+    <div class="vc-warn hidden" id="vcWarn"></div>
+
+    <section class="vc-panel" aria-label="AI model setup">
+      <div class="vc-panel-head">
+        <h2>AI models</h2>
+        <span class="vc-badge" id="vcReady">not loaded</span>
+      </div>
+
+      <div class="vc-field">
+        <label for="vcTrModel">Translation model</label>
+        <select id="vcTrModel"></select>
+        <p class="vc-note" id="vcTrNote"></p>
+      </div>
+
+      <div class="vc-field">
+        <label for="vcAsrModel">Voice recognition model</label>
+        <select id="vcAsrModel"></select>
+        <p class="vc-note" id="vcAsrNote"></p>
+      </div>
+
+      <div class="vc-dl-row">
+        <button id="vcLoadBtn" class="btn-primary" type="button">Download &amp; load models</button>
+        <span class="vc-storage" id="vcStorage"></span>
+      </div>
+
+      <div class="vc-progress hidden" id="vcProgWrap">
+        <div class="vc-progress-track"><div class="vc-progress-fill" id="vcProgFill"></div></div>
+        <div class="vc-progress-text" id="vcProgText" aria-live="polite"></div>
+      </div>
+      <p class="vc-note">Models are downloaded once and cached by the browser — after that no internet is needed.</p>
+    </section>
+
+    <section class="vc-speak-panel" aria-label="Voice input">
+      <div class="vc-mics">
+        <button class="vc-mic" id="vcMicEn" type="button" disabled>🎤 Speak English</button>
+        <button class="vc-mic vc-mic-zh" id="vcMicZh" type="button" disabled>🎤 说中文</button>
+      </div>
+      <p class="vc-hint" id="vcHint">Tap a microphone, say one sentence, then tap again (stops automatically after 15&nbsp;s).</p>
+      <div class="tr-status" id="vcStatus" aria-live="polite"></div>
+    </section>
+
+    <section class="vc-result hidden" id="vcResult" aria-label="Voice translation result">
+      <div class="vc-block">
+        <span class="vc-label">I heard</span>
+        <div class="vc-heard" id="vcHeard"></div>
+      </div>
+      <div class="vc-block">
+        <span class="vc-label">Translation</span>
+        <div class="vc-hz" id="vcHanzi" lang="zh-CN"></div>
+        <div class="vc-py" id="vcPinyin"></div>
+        <div class="vc-en" id="vcEnglish"></div>
+      </div>
+      <button id="vcListenBtn" class="btn-primary" type="button">🔊 Listen again</button>
+    </section>
   </main>
 
   <script src="data/categories.js"></script>
@@ -128,6 +216,10 @@
   <script src="data/cat10.js"></script>
   <script src="app.js"></script>
   <script src="translate.js"></script>
+  <!-- pinyin-pro: deterministic tone-marked pinyin for translated hanzi
+       (LLMs hallucinate tones; this dictionary-based lib never does). -->
+  <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.29.3/dist/index.min.js"></script>
+  <script src="ai.js"></script>
   <script>
     // Offline support — register the service worker after first load.
     if ("serviceWorker" in navigator) {

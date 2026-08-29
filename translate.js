@@ -33,6 +33,7 @@
   const trScreen = $("translate");
   const homeScreen = $("home");
   const studyScreen = $("study");
+  const voiceScreen = $("voice");
 
   const CJK = /[\u3400-\u9fff]/;
   const SUGGEST_MIN = 60; // score needed to earn a suggestion card
@@ -277,6 +278,7 @@
   function show(which) {
     homeScreen.classList.toggle("hidden", which !== "home");
     trScreen.classList.toggle("hidden", which !== "translate");
+    voiceScreen.classList.toggle("hidden", which !== "voice");
     if (which !== "study") studyScreen.classList.add("hidden");
     seg.querySelectorAll(".seg-btn").forEach((b) => {
       const active = b.dataset.nav === which;
@@ -288,6 +290,10 @@
       window.scrollTo(0, 0);
       // only auto-focus (and pop the mobile keyboard) on desktop
       if (window.matchMedia("(min-width: 900px)").matches) input.focus();
+    }
+    if (which === "voice") {
+      window.scrollTo(0, 0);
+      if (window.TCVoice) window.TCVoice.onShow();
     }
   }
 
