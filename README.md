@@ -77,9 +77,13 @@ with WASM fallback):
 
 | Model | Download | Notes |
 |---|---|---|
-| Whisper Base *(default)* | ~85 MB | Good EN + Mandarin accuracy |
-| Whisper Tiny | ~45 MB | Fastest |
+| Whisper WebGPU *(default)* | ~120 MB | GPU build (fp32 encoder + q4 decoder) — near real-time on WebGPU |
+| Whisper Tiny | ~45 MB | CPU fallback when WebGPU is unavailable |
 | Whisper Small | ~250 MB | Most accurate, best in noise |
+
+The status line reports which backend actually loaded (WebGPU vs CPU), so
+slowness is never a mystery. If WebGPU fails, the app automatically falls
+back to quantized Whisper Tiny on CPU and says so in the model note.
 
 **How the offline story works**
 
@@ -97,8 +101,18 @@ with WASM fallback):
 - **WebGPU is required** for the translation model (Chrome/Edge 113+, Chrome on
   Android; iOS Safari only from Safari 26). Without it the app shows a warning
   and Whisper still runs on CPU (slow but usable).
-- Recording caps at 15 s — enough for a sentence; tap the button again to stop
-  earlier. The translation auto-plays, with a 🔊 *Listen again* button.
+- Recording auto-stops ~1.2 s after you stop speaking (simple VAD) — shorter
+  clips transcribe faster and hallucinate far less than padded silence.
+  A 15 s cap remains as the safety net; tap the button again to stop earlier.
+  The translation auto-plays, with a 🔊 *Listen again* button.
+- **Backgrounding resilience:** browsers can reclaim the WebGPU device of a
+  backgrounded tab, which disposes the loaded models. The app detects the
+  resulting *"already disposed"* errors, rebuilds the models from the local
+  weight caches (no re-download), and retries the request automatically. A
+  screen wake lock is held while recording/translating to prevent it mid-use.
+- **Translation validation:** if the small model answers in the wrong script
+  (echoed English or pinyin like "ma que…" instead of 汉字), the app retries
+  once with a corrective prompt and flags the raw reply if it still misses.
 - First model download needs a network & charger-friendly moment; everything
   after that is fully on-device.
 

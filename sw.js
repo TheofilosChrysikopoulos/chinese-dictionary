@@ -12,7 +12,7 @@
  * never delete those, only caches with our own prefix.
  * ========================================================= */
 
-const CACHE_VERSION = "tourist-chinese-v5";
+const CACHE_VERSION = "tourist-chinese-v6";
 const CDN_HOSTS = [
   "esm.run",            // webllm ES module bundle
   "cdn.jsdelivr.net",   // transformers.js + its wasm backends

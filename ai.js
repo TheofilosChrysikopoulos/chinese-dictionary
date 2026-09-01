@@ -68,18 +68,20 @@
   ];
 
   // transformers.js (ONNX) model repos on the Hugging Face Hub.
+  // The WebGPU build is the one tuned for GPU inference (fp32 encoder +
+  // q4 decoder, like the official whisper-webgpu demo) — near real-time.
   const VOICE_MODELS = [
     {
-      id: "onnx-community/whisper-base",
-      label: "Whisper Base — recommended",
-      size: "~85 MB",
-      note: "Good accuracy for English and Mandarin."
+      id: "onnx-community/whisper-webgpu",
+      label: "Whisper WebGPU — recommended",
+      size: "~120 MB",
+      note: "Fastest — runs on your GPU (needs WebGPU). Near real-time."
     },
     {
       id: "onnx-community/whisper-tiny",
-      label: "Whisper Tiny — fastest",
+      label: "Whisper Tiny — CPU fallback",
       size: "~45 MB",
-      note: "Quickest, fine for short clear phrases."
+      note: "Works without WebGPU; fine for short clear phrases."
     },
     {
       id: "onnx-community/whisper-small",
@@ -92,6 +94,12 @@
   const MODEL_KEY = "tc-ai-model";
   const VOICE_KEY = "tc-ai-voice";
   const MAX_RECORD_MS = 15000;
+
+  // Which backend the speech pipeline actually loaded ("webgpu"/"wasm") and
+  // which catalogue entry the user picked — set by ensureAsr(), reported to
+  // the user afterwards so slowness is never a mystery.
+  let asrDevice = null;
+  let asrSelected = null;
 
   /* ---------- state ---------- */
 
@@ -260,29 +268,48 @@
 
   async function ensureAsr() {
     const wanted = asrSelect.value;
-    if (ai.asr && ai.asrModel === wanted) return;
+    if (ai.asr && asrSelected === wanted) return;
     if (!ai.transformers) {
       setStatus("Fetching the speech engine…");
       ai.transformers = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3");
       ai.transformers.env.allowLocalModels = false;
     }
     setStatus("Loading " + wanted + " (one-time download)…");
-    const make = (device) => ai.transformers.pipeline("automatic-speech-recognition", wanted, {
-      dtype: "q8",
+    const make = (model, device, dtype) => ai.transformers.pipeline("automatic-speech-recognition", model, {
+      dtype: dtype,
       device: device,
       progress_callback: (p) => {
-        if (p && p.status === "progress" && p.total && p.file && p.file.indexOf("_quantized") !== -1) {
-          setProgress((p.loaded / p.total) * 100, "Downloading " + wanted.split("/").pop() + "…");
+        if (p && p.status === "progress" && p.total && p.file && /\.onnx/i.test(p.file)) {
+          setProgress((p.loaded / p.total) * 100, "Downloading " + model.split("/").pop() + "…");
         }
       }
     });
-    try {
-      ai.asr = await (navigator.gpu ? make("webgpu") : make("wasm"));
-    } catch (e) {
-      // some GPUs miss shader-f16 etc. — retry on CPU
-      ai.asr = await make("wasm");
+    // WebGPU path: fp32 encoder + q4 decoder is the fast, well-tested split
+    // used by the official whisper-webgpu demo — minutes become seconds.
+    if (navigator.gpu) {
+      try {
+        ai.asr = await make(wanted, "webgpu", { encoder_model: "fp32", decoder_model_merged: "q4" });
+        asrDevice = "webgpu";
+        asrSelected = wanted;
+        ai.asrModel = wanted;
+        return;
+      } catch (e) {
+        console.warn("Whisper WebGPU failed — falling back to CPU:", e);
+      }
     }
-    ai.asrModel = wanted;
+    // CPU path: the WebGPU-tuned repo has no q8 CPU build, so fall back to
+    // whisper-tiny — and say so, because CPU speed differs by an order of
+    // magnitude and the user should know why it is slow.
+    const cpuModel = wanted === "onnx-community/whisper-webgpu"
+      ? "onnx-community/whisper-tiny" : wanted;
+    ai.asr = await make(cpuModel, "wasm", "q8");
+    asrDevice = "wasm";
+    asrSelected = wanted;
+    ai.asrModel = cpuModel;
+    if (cpuModel !== wanted) {
+      $("vcAsrNote").textContent =
+        "⚠️ WebGPU is not available in this browser — using Whisper Tiny on CPU (slower and less accurate).";
+    }
   }
 
   async function loadModels() {
@@ -294,8 +321,10 @@
     try {
       await ensureAsr();
       await ensureEngine();
-      readyBadge.textContent = "ready · offline";
-      setStatus("AI models ready — everything now works offline.");
+      readyBadge.textContent = asrDevice === "wasm" ? "ready · CPU" : "ready · offline";
+      setStatus("AI models ready — speech on " +
+        (asrDevice === "webgpu" ? "WebGPU (fast)" : "CPU (slow)") +
+        " · everything now works offline.");
       updateStorage();
       if (navigator.storage && navigator.storage.persist) {
         navigator.storage.persist().catch(() => {});
@@ -310,6 +339,26 @@
       updateMicButtons();
     }
   }
+
+  // Keep the screen (and with it the GPU) awake while a voice round-trip is
+  // running — a backgrounded/locked device is exactly what makes the browser
+  // reclaim the WebGPU context and dispose the models mid-use.
+  let wakeLock = null;
+  async function keepAwake(on) {
+    try {
+      if (on) {
+        if (!wakeLock && navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen");
+      } else if (wakeLock) {
+        await wakeLock.release();
+        wakeLock = null;
+      }
+    } catch (e) { /* wake lock unavailable — harmless */ }
+  }
+  document.addEventListener("visibilitychange", () => {
+    // Wake locks auto-release when the page is hidden — re-grab on return
+    // if a recording or processing run is still in flight.
+    if (document.visibilityState === "visible" && (ai.recording || processing)) keepAwake(true);
+  });
 
   /* ---------- audio capture ---------- */
 
@@ -348,7 +397,22 @@
       const proc = ctx.createScriptProcessor(4096, 1, 1);
       const chunks = [];
       proc.onaudioprocess = (e) => {
-        chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+        const buf = e.inputBuffer.getChannelData(0);
+        chunks.push(new Float32Array(buf));
+        // Simple VAD: once real speech has been heard, ~1.2 s of silence
+        // stops the recording automatically. Shorter clips transcribe much
+        // faster — and trailing silence is Whisper's #1 hallucination trigger.
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+        const rms = Math.sqrt(sum / buf.length);
+        const now = performance.now();
+        if (rms > 0.01) {
+          session.heardVoice = true;
+          session.lastVoice = now;
+        } else if (session.heardVoice && now - session.lastVoice > 1200 && !session.autoStopping) {
+          session.autoStopping = true;
+          finishRecording(session);
+        }
       };
       // ScriptProcessor only runs while connected to the destination —
       // route it through a mute node so the mic never plays out loud.
@@ -391,25 +455,57 @@
 
   /* ---------- transcription + translation ---------- */
 
+  // A backgrounded tab can have its WebGPU device reclaimed by the browser;
+  // every GPU resource then becomes "disposed" and further calls fail with
+  // "The current Object has already been disposed". The weights are still
+  // cached, so recovery is just re-creating the pipeline — fast, offline.
+  function isDisposedError(e) {
+    return /disposed|device (lost|reset)|(lost|reset).{0,20}gpu|gpu.{0,20}(lost|reset)/i
+      .test(String((e && e.message) || e));
+  }
+
   async function transcribe(pcm16k, dir) {
     const lang = dir === "en2zh" ? "english" : "chinese";
-    const out = await ai.asr(pcm16k, { language: lang, task: "transcribe" });
+    const run = () => ai.asr(pcm16k, { language: lang, task: "transcribe" });
+    let out;
+    try {
+      out = await run();
+    } catch (e) {
+      if (!isDisposedError(e)) throw e;
+      setStatus("Restoring the speech model…");
+      ai.asr = null;
+      ai.asrModel = null;
+      asrSelected = null;
+      await ensureAsr();
+      out = await run();
+    }
     return String(out && out.text ? out.text : "").trim();
   }
 
   // Qwen3 "thinks" by default; /no_think switches it to plain answers.
-  function translatePrompt(text, dir, modelId) {
+  // The en2zh prompt is extra explicit about Chinese characters + carries a
+  // one-shot example, because small models sometimes answer in pinyin or
+  // just echo the English otherwise ("sparrow" → "ma que…").
+  function translatePrompt(text, dir, modelId, retry) {
     let user;
     if (dir === "en2zh") {
       user =
         "Translate the English text below into natural, conversational Simplified Mandarin Chinese.\n" +
-        "Answer with the Chinese translation only — one line, no pinyin, no quotes, no explanation.\n\n" +
-        "English: " + text;
+        "Write the translation in Simplified Chinese characters (汉字) ONLY — never pinyin, romanization or English.\n" +
+        "One line, no quotes, no explanation.\n\n" +
+        "Example:\nEnglish: The weather is nice today.\n中文: 今天天气很好。\n\n" +
+        "English: " + text + "\n中文:";
     } else {
       user =
         "Translate the Chinese text below into natural English.\n" +
-        "Answer with the English translation only — one line, no quotes, no explanation.\n\n" +
-        "中文: " + text;
+        "Answer with the English translation only — one line, no Chinese characters, no quotes, no explanation.\n\n" +
+        "中文: " + text + "\nEnglish:";
+    }
+    if (retry) {
+      user += "\n\nIMPORTANT: Your previous answer was not in " +
+        (dir === "en2zh"
+          ? "Chinese characters. Respond ONLY with Simplified Chinese characters (汉字)."
+          : "English. Respond ONLY with English words.");
     }
     if (/^Qwen3/.test(modelId)) user += "\n/no_think";
     return user;
@@ -451,8 +547,6 @@
 
     if (dir === "zh2en") return { hanzi: "", pinyin: "", english: lines[0] };
 
-    const hasCjk = (s) => /[\u3400-\u9fff]/.test(s);
-
     // The model may still wrap a multi-sentence translation over several
     // lines — keep EVERY CJK line so no sentence is ever silently dropped.
     const hanziLines = lines.filter(hasCjk);
@@ -460,14 +554,22 @@
     return { hanzi: hanzi, pinyin: toPinyin(hanzi), english: "" };
   }
 
-  async function translate(text, dir) {
+  const hasCjk = (s) => /[\u3400-\u9fff]/.test(s || "");
+
+  // The direction the output MUST be in — detects the small-model failure
+  // where it echoes the input or answers in romanization instead of hanzi.
+  function outputLooksWrong(tr, dir) {
+    return dir === "en2zh" ? !hasCjk(tr.hanzi) : hasCjk(tr.english);
+  }
+
+  async function translateOnce(text, dir, retry) {
     const reply = await ai.engine.chat.completions.create({
       messages: [
         {
           role: "system",
           content: "You are a professional English–Chinese translator. Follow the requested output format exactly. Never add explanations."
         },
-        { role: "user", content: translatePrompt(text, dir, ai.engineModel) }
+        { role: "user", content: translatePrompt(text, dir, ai.engineModel, retry) }
       ],
       temperature: 0, // greedy decoding — same input, same translation every run
       max_tokens: 400
@@ -475,6 +577,36 @@
     const content = reply.choices && reply.choices[0] &&
       reply.choices[0].message && reply.choices[0].message.content;
     return parseTranslation(content || "", dir);
+  }
+
+  async function translate(text, dir, ui) {
+    ui = ui || voiceUi();
+    let tr;
+    try {
+      tr = await translateOnce(text, dir, false);
+    } catch (e) {
+      if (!isDisposedError(e)) throw e;
+      // Backgrounding disposed the WebGPU engine — rebuild it from the
+      // cached weights (no network) and run the request again.
+      ui.status("Restoring the translation model…");
+      const wantedModel = ai.engineModel;
+      ai.engine = null;
+      ai.engineModel = null;
+      await ensureEngine(wantedModel, ui);
+      tr = await translateOnce(text, dir, false);
+    }
+    // Small models sometimes echo the English or answer in pinyin. A single
+    // corrective retry (different prompt → different greedy output) almost
+    // always lands it in the right script.
+    if (outputLooksWrong(tr, dir)) {
+      tr = await translateOnce(text, dir, true);
+      if (outputLooksWrong(tr, dir)) {
+        tr.warn = dir === "en2zh"
+          ? "⚠️ The model did not answer in Chinese characters — showing its raw reply. Try rephrasing."
+          : "⚠️ The model did not answer in English — showing its raw reply. Try rephrasing.";
+      }
+    }
+    return tr;
   }
 
   /* ---------- voice round trip ---------- */
@@ -530,7 +662,7 @@
       setStatus("Translating…");
       const tr = await translate(transcript, session.dir);
       renderResult(session.dir, transcript, tr);
-      setStatus("");
+      setStatus(tr.warn || "");
       // auto-play the translation — that's what a tourist needs hands-free
       speak(session.dir === "en2zh" ? tr.hanzi : tr.english,
         session.dir === "en2zh" ? "zh-CN" : "en-US");
@@ -540,6 +672,7 @@
       processing = false;
       ai.busy = false;
       updateMicButtons();
+      keepAwake(false);
     }
   }
 
@@ -554,7 +687,7 @@
     btn.classList.remove("recording");
     btn.innerHTML = session.dir === "en2zh" ? "🎤 Speak English" : "🎤 说中文";
     hintEl.textContent =
-      "Tap a microphone, say one sentence, then tap again (stops automatically after 15 s).";
+      "Tap a microphone and say one sentence — it stops by itself shortly after you stop speaking.";
     updateMicButtons();
     processSession(session);
   }
@@ -578,12 +711,13 @@
         return;
       }
       ai.busy = true;
+      keepAwake(true);
       const btn = dir === "en2zh" ? micEn : micZh;
       btn.classList.add("recording");
       btn.innerHTML = dir === "en2zh" ? "⏹ Stop &amp; translate" : "⏹ 停止并翻译";
       updateMicButtons();
       btn.disabled = false;
-      hintEl.textContent = "Listening… say one sentence, then tap again.";
+      hintEl.textContent = "Listening… say one sentence, then pause (or tap to stop).";
       setStatus("");
       return;
     }
@@ -654,9 +788,9 @@
       // the one-time download progress right here in the Translate tab.
       await ensureEngine(trAiSelect.value, textUi());
       trAiStatusEl.textContent = "Translating with " + shortName(ai.engineModel) + "…";
-      const tr = await translate(q, dir);
+      const tr = await translate(q, dir, textUi());
       renderTextResult(dir, tr);
-      trAiStatusEl.textContent = "";
+      trAiStatusEl.textContent = tr.warn || "";
     } catch (e) {
       trAiStatusEl.textContent =
         "AI translation failed: " + (e && e.message ? e.message : e);
@@ -682,8 +816,11 @@
   /* ---------- init ---------- */
 
   function populateSelects() {
-    const trPref = loadPref(MODEL_KEY, TRANSLATION_MODELS[0].id);
-    const asrPref = loadPref(VOICE_KEY, VOICE_MODELS[0].id);
+    // A stored preference can refer to a model that has since been removed
+    // from the catalogue — fall back to the default instead of a blank select.
+    const known = (list, v) => (list.some((m) => m.id === v) ? v : list[0].id);
+    const trPref = known(TRANSLATION_MODELS, loadPref(MODEL_KEY, TRANSLATION_MODELS[0].id));
+    const asrPref = known(VOICE_MODELS, loadPref(VOICE_KEY, VOICE_MODELS[0].id));
 
     const trOptions = TRANSLATION_MODELS.map((m) =>
       '<option value="' + esc(m.id) + '"' + (m.id === trPref ? " selected" : "") + ">" +
